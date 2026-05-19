@@ -1,9 +1,8 @@
 const https=require('https');const http=require('http');
-const IID='7107607381';
-const ITOKEN='06df99fcaf654e6dbd0d504cf1413b60144f1c48ac824ea2b5';
+const UINSTANCE='instance176233';
+const UTOKEN='cnurnc1zb5wduoa7';
 const GROQ='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';
-const GBASE='https://api.green-api.com';
-const OWNER='212716508833@c.us';
+const OWNER='212716508833';
 
 function get(url){return new Promise(r=>{https.get(url,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r(null)}})}).on('error',()=>r(null))});}
 
@@ -21,7 +20,9 @@ async function reply(txt,info){
   return r.choices?.[0]?.message?.content||null;
 }
 
-async function send(id,msg){await post(`${GBASE}/waInstance${IID}/sendMessage/${ITOKEN}`,{chatId:id,message:msg});}
+async function send(to,msg){
+  await get(`https://api.ultramsg.com/${UINSTANCE}/messages/chat?token=${UTOKEN}&to=${encodeURIComponent(to)}&body=${encodeURIComponent(msg)}&priority=10`);
+}
 
 const server=http.createServer((req,res)=>{
   if(req.method==='POST'&&req.url==='/webhook'){
@@ -31,10 +32,26 @@ const server=http.createServer((req,res)=>{
       res.writeHead(200);res.end('OK');
       try{
         const d=JSON.parse(body);
-        if(d.typeWebhook!=='incomingMessageReceived')return;
-        const txt=d.messageData?.textMessageData?.textMessage||'';
-        const cid=d.senderData?.chatId||'';
-        const name=d.senderData?.senderName||'عميل';
+        console.log('📡 Webhook:', JSON.stringify(d).substring(0,100));
+        const txt=d.body||'';
+        const from=d.from||'';
+        const isGroup=from.includes('@g.us')||d.isGroup;
+        if(!txt||txt.startsWith('false')||!isGroup)return;
+        console.log(`📨 من ${d.author||from}: ${txt}`);
+        const kw=['مزروب','عاجل','مشكل','مفقود'];
+        if(kw.some(k=>txt.includes(k)))await send(OWNER,`🚨 ${d.author||from}: ${txt}`);
+        const code=findCode(txt);
+        const info=code?await track(code):null;
+        const r=await reply(txt,info);
+        if(r)await send(from,r);
+      }catch(e){console.error('❌',e.message);}
+    });
+  }else{
+    res.writeHead(200);res.end('Yanis Bot OK');
+  }
+});
+
+server.listen(process.env.PORT||3000,()=>console.log('🚀 UltraMsg Bot OK'));        const name=d.senderData?.senderName||'عميل';
         if(!txt||!cid.includes('@g.us'))return;
         console.log(`[${name}]: ${txt}`);
         const kw=['مزروب','عاجل','مشكل','مفقود'];

@@ -7,17 +7,21 @@ function get(url){return new Promise(r=>{https.get(url,res=>{let d='';res.on('da
 function post(url,body,auth){return new Promise(r=>{const u=new URL(url);const b=Buffer.from(JSON.stringify(body));const h={'Content-Type':'application/json','Content-Length':b.length};if(auth)h['Authorization']='Bearer '+auth;const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:h},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r({})}})});req.on('error',()=>r({}));req.write(b);req.end()});}
 async function send(to,msg){return new Promise(r=>{const u=new URL('https://api.ultramsg.com/'+UINSTANCE+'/messages/chat');const b=Buffer.from('token='+UTOKEN+'&to='+encodeURIComponent(to)+'&body='+encodeURIComponent(msg)+'&priority=10');const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Content-Length':b.length}},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{console.log('📤 '+d.substring(0,80));r(d)})});req.on('error',e=>{console.error('send err:'+e.message);r(null)});req.write(b);req.end()});}
 async function track(code){const d=await get('https://yanisdelivery.site/track1.php?code='+code);return d&&d[0]?d[0]:null;}
-function findCode(t){const m=t.match(/[A-Z]{2,6}\d{6,12}[A-Z]{0,4}|[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+|[A-Z]{2,5}-\d{8,}-\d+/i);return m?m[0].toUpperCase():null;}
+function findCode(t){
+  const patterns=[
+    /[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,
+    /[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i,
+    /[A-Z]{2,5}-\d{8,}-\d+/i,
+    /\b\d{4,10}\b/
+  ];
+  for(const p of patterns){const m=t.match(p);if(m)return m[0].toUpperCase();}
+  return null;
+}
 const ST={'Livré':'✅ وصل','Annulé':'❌ ملغي','En cours':'🚚 في الطريق','Retour':'↩️ راجع','En attente':'⏳ في الانتظار'};
 async function ai(txt,info){
-  let sys;
-  if(info){
-    sys=`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية.
-معلومات الطرد: الحالة=${ST[info.Etat]||info.Etat}، المدينة=${info.Ville}، الموزع=${info.Livreur}، الهاتف=${info.Telephone}.
-مثال جواب: "طردك ${ST[info.Etat]||info.Etat} فـ${info.Ville}، الموزع ${info.Livreur} رقمو ${info.Telephone} 📞"`;
-  } else {
-    sys=`أنت بوت Yanis Delivery. إذا ما عندكش رقم طرد قل: "عطيني رقم الطرد ديالك باش نجيبلك المعلومات 📦". جملة واحدة فقط بالدارجة.`;
-  }
+  const sys=info
+    ?`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية. معلومات الطرد: الحالة=${ST[info.Etat]||info.Etat}، المدينة=${info.Ville}، الموزع=${info.Livreur}، الهاتف=${info.Telephone}.`
+    :`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية على سؤال العميل.`;
   const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:100,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
   return r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
 }
@@ -36,10 +40,15 @@ http.createServer((req,res)=>{
         const isGroup=from.includes('@g.us')||data.isGroup===true;
         if(!txt||!isGroup)return;
         console.log('📨 '+txt);
-        const kw=['مزروب','عاجل','مشكل','مفقود'];
-        if(kw.some(k=>txt.includes(k)))await send(OWNER,'🚨 '+from+': '+txt);
+        const kw=['مزروب','عاجل','urgent','مشكل','مفقود'];
+        if(kw.some(k=>txt.toLowerCase().includes(k.toLowerCase()))){
+          await send(OWNER,'🚨 تنبيه عاجل!\nمن: '+from+'\nرسالة: '+txt);
+          console.log('🚨 تنبيه أرسل!');
+        }
         const code=findCode(txt);
+        console.log('🔎 code:'+code);
         const info=code?await track(code):null;
+        if(!info&&!code)return;
         const r=await ai(txt,info);
         if(r)await send(from,r);
       }catch(e){console.error('❌ '+e.message);}

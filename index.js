@@ -8,20 +8,16 @@ function post(url,body,auth){return new Promise(r=>{const u=new URL(url);const b
 async function send(to,msg){return new Promise(r=>{const u=new URL('https://api.ultramsg.com/'+UINSTANCE+'/messages/chat');const b=Buffer.from('token='+UTOKEN+'&to='+encodeURIComponent(to)+'&body='+encodeURIComponent(msg)+'&priority=10');const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Content-Length':b.length}},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{console.log('📤 '+d.substring(0,80));r(d)})});req.on('error',e=>{console.error('send err:'+e.message);r(null)});req.write(b);req.end()});}
 async function track(code){const d=await get('https://yanisdelivery.site/track1.php?code='+code);return d&&d[0]?d[0]:null;}
 function findCode(t){
-  const patterns=[
-    /[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,
-    /[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i,
-    /[A-Z]{2,5}-\d{8,}-\d+/i,
-    /\b\d{4,10}\b/
-  ];
+  const patterns=[/[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,/[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i,/[A-Z]{2,5}-\d{8,}-\d+/i,/\b\d{4,10}\b/];
   for(const p of patterns){const m=t.match(p);if(m)return m[0].toUpperCase();}
   return null;
 }
 const ST={'Livré':'✅ وصل','Annulé':'❌ ملغي','En cours':'🚚 في الطريق','Retour':'↩️ راجع','En attente':'⏳ في الانتظار'};
+const CONTACT_KW=['تواصل مع الكليان','تواصلو مع الكليان','سوني لكليان','صوني لكليان','العميل كيتسنى','client kaytsna','appel client','contactez le client'];
 async function ai(txt,info){
   const sys=info
     ?`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية. معلومات الطرد: الحالة=${ST[info.Etat]||info.Etat}، المدينة=${info.Ville}، الموزع=${info.Livreur}، الهاتف=${info.Telephone}.`
-    :`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية على سؤال العميل.`;
+    :`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية.`;
   const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:100,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
   return r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
 }
@@ -40,14 +36,27 @@ http.createServer((req,res)=>{
         const isGroup=from.includes('@g.us')||data.isGroup===true;
         if(!txt||!isGroup)return;
         console.log('📨 '+txt);
+
+        // تنبيه عاجل
         const kw=['مزروب','عاجل','urgent','مشكل','مفقود'];
         if(kw.some(k=>txt.toLowerCase().includes(k.toLowerCase()))){
-          await send(OWNER,'🚨 تنبيه عاجل!\nمن: '+from+'\nرسالة: '+txt);
-          console.log('🚨 تنبيه أرسل!');
+          await send(OWNER,'🚨 تنبيه عاجل!\nرسالة: '+txt);
         }
+
+        // تواصل مع العميل
+        const needsContact=CONTACT_KW.some(k=>txt.toLowerCase().includes(k.toLowerCase()));
         const code=findCode(txt);
-        console.log('🔎 code:'+code);
         const info=code?await track(code):null;
+
+        if(needsContact&&info&&info.Telephone){
+          const livreurPhone='212'+info.Telephone.replace(/^0/,'');
+          const msg='🔔 مطلوب منك تتواصل مع العميل ديال طرد '+code+'\nالمدينة: '+info.Ville+'\nتواصل معه دابا! 📞';
+          await send(livreurPhone+'@c.us',msg);
+          await send(from,'✅ تم إرسال تنبيه للموزع '+info.Livreur+' باش يتواصل مع العميل 📲');
+          console.log('📞 تنبيه أرسل للموزع: '+livreurPhone);
+          return;
+        }
+
         if(!info&&!code)return;
         const r=await ai(txt,info);
         if(r)await send(from,r);

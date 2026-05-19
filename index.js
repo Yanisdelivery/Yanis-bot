@@ -11,6 +11,21 @@ const ST={'Livré':'✅ وصل','Annulé':'❌ ملغي','En cours':'🚚 في �
 async function ai(txt,info){const sys='بوت Yanis Delivery. رد بالدارجة أو الفرنسية. جملتين مع إيموجي.'+(info?' طرد: حالة='+(ST[info.Etat]||info.Etat)+' مدينة='+info.Ville+' موزع='+info.Livreur+' هاتف='+info.Telephone:'');const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama3-8b-8192',max_tokens:150,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);return r.choices?.[0]?.message?.content||null;}
 async function send(to,msg){await get('https://api.ultramsg.com/'+UINSTANCE+'/messages/chat?token='+UTOKEN+'&to='+encodeURIComponent(to)+'&body='+encodeURIComponent(msg)+'&priority=10');}
 http.createServer((req,res)=>{
-if(req.method==='POST'&&req.url==='/webhook'){let body='';req.on('data',c=>body+=c);req.on('end',async()=>{res.writeHead(200);res.end('OK');try{const d=JSON.parse(body);console.log('📡',JSON.stringify(d).substring(0,150));const txt=d.body||'';const from=d.from||'';const isGroup=from.includes('@g.us')||d.isGroup===true;if(!txt||!isGroup)return;console.log('📨 من '+from+': '+txt);const kw=['مزروب','عاجل','مشكل','مفقود'];if(kw.some(k=>txt.includes(k)))await send(OWNER,'🚨 '+from+': '+txt);const code=findCode(txt);const info=code?await track(code):null;const r=await ai(txt,info);if(r)await send(from,r);}catch(e){console.error('❌',e.message);}});}
+if(req.method==='POST'&&req.url==='/webhook'){let body='';req.on('data',c=>body+=c);req.on('end',async()=>{res.writeHead(200);res.end('OK');try{
+const d=JSON.parse(body);
+if(d.event_type!=='message_received')return;
+const data=d.data||{};
+const txt=data.body||data.message||'';
+const from=data.from||data.chatId||'';
+const isGroup=from.includes('@g.us')||data.isGroup===true||data.type==='group';
+console.log('📨 from:'+from+' group:'+isGroup+' txt:'+txt);
+if(!txt||!isGroup)return;
+const kw=['مزروب','عاجل','مشكل','مفقود'];
+if(kw.some(k=>txt.includes(k)))await send(OWNER,'🚨 '+from+': '+txt);
+const code=findCode(txt);
+const info=code?await track(code):null;
+const r=await ai(txt,info);
+if(r)await send(from,r);
+}catch(e){console.error('❌',e.message);}});}
 else{res.writeHead(200);res.end('Yanis Bot OK');}
 }).listen(process.env.PORT||3000,()=>console.log('🚀 UltraMsg Bot OK'));

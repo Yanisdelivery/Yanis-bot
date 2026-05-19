@@ -12,14 +12,20 @@ function findCode(t){
   for(const p of patterns){const m=t.match(p);if(m)return m[0].toUpperCase();}
   return null;
 }
-const ST={'Livré':'✅ وصل','Annulé':'❌ ملغي','En cours':'🚚 في الطريق','Retour':'↩️ راجع','En attente':'⏳ في الانتظار'};
-const CONTACT_KW=['تواصل مع الكليان','تواصلو مع الكليان','سوني لكليان','صوني لكليان','العميل كيتسنى','client kaytsna','appel client','contactez le client'];
-async function ai(txt,info){
-  const sys=info
-    ?`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية. معلومات الطرد: الحالة=${ST[info.Etat]||info.Etat}، المدينة=${info.Ville}، الموزع=${info.Livreur}، الهاتف=${info.Telephone}.`
-    :`أنت بوت Yanis Delivery. أجب بجملة واحدة فقط بالدارجة المغربية.`;
-  const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:100,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
-  return r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
+const ST={
+  'Livré':'wslat ✅',
+  'Annulé':'mlghiya ❌',
+  'En cours':'f triq 🚚',
+  'Retour':'raja3at ↩️',
+  'En attente':'kattsna ⏳',
+  'Reporté':'m2ajala 📅',
+  'Reporte':'m2ajala 📅',
+  'Sorti':'khrajat 🚴'
+};
+const CONTACT_KW=['تواصل مع الكليان','تواصلو مع الكليان','سوني لكليان','صوني لكليان','العميل كيتسنى','client kaytsna','appel client','contactez le client','soni l client','sawni l client'];
+function buildReply(info,code){
+  const etat=ST[info.Etat]||info.Etat;
+  return `Colis dyalk ${code} ${etat} 📦\n3and: ${info.Livreur} f ${info.Ville}\nTél: ${info.Telephone} 📞`;
 }
 http.createServer((req,res)=>{
   if(req.method==='POST'&&req.url==='/webhook'){
@@ -40,26 +46,24 @@ http.createServer((req,res)=>{
         // تنبيه عاجل
         const kw=['مزروب','عاجل','urgent','مشكل','مفقود'];
         if(kw.some(k=>txt.toLowerCase().includes(k.toLowerCase()))){
-          await send(OWNER,'🚨 تنبيه عاجل!\nرسالة: '+txt);
+          await send(OWNER,'🚨 تنبيه!\nرسالة: '+txt);
         }
 
-        // تواصل مع العميل
-        const needsContact=CONTACT_KW.some(k=>txt.toLowerCase().includes(k.toLowerCase()));
         const code=findCode(txt);
         const info=code?await track(code):null;
 
+        // تواصل مع العميل
+        const needsContact=CONTACT_KW.some(k=>txt.toLowerCase().includes(k.toLowerCase()));
         if(needsContact&&info&&info.Telephone){
           const livreurPhone='212'+info.Telephone.replace(/^0/,'');
-          const msg='🔔 مطلوب منك تتواصل مع العميل ديال طرد '+code+'\nالمدينة: '+info.Ville+'\nتواصل معه دابا! 📞';
-          await send(livreurPhone+'@c.us',msg);
-          await send(from,'✅ تم إرسال تنبيه للموزع '+info.Livreur+' باش يتواصل مع العميل 📲');
-          console.log('📞 تنبيه أرسل للموزع: '+livreurPhone);
+          await send(livreurPhone+'@c.us','🔔 3afak twasl m3 client dyal colis '+code+' f '+info.Ville+' daba! 📞');
+          await send(from,'✅ Twaslna m3 '+info.Livreur+' bach ytwasl m3 client 📲');
           return;
         }
 
-        if(!info&&!code)return;
-        const r=await ai(txt,info);
-        if(r)await send(from,r);
+        if(!info||!code)return;
+        const reply=buildReply(info,code);
+        await send(from,reply);
       }catch(e){console.error('❌ '+e.message);}
     });
   }else{

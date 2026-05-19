@@ -1,7 +1,7 @@
 const https=require('https');const http=require('http');
 const UINSTANCE='instance176233';
 const UTOKEN='cnurnc1zb5wduoa7';
-const GROQ='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';
+const GROQ=process.env.GROQ_API_KEY||'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';
 const OWNER='212716508833';
 
 function get(url){return new Promise(r=>{https.get(url,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r(null)}})}).on('error',()=>r(null))});}

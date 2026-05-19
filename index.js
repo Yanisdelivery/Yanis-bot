@@ -6,28 +6,23 @@ const OWNER='212716508833';
 
 function get(url){return new Promise(r=>{https.get(url,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r(null)}})}).on('error',()=>r(null))});}
 
-function post(url,body,auth){return new Promise(r=>{const u=new URL(url);const b=Buffer.from(JSON.stringify(body));const h={'Content-Type':'application/json','Content-Length':b.length};if(auth)h['Authorization']=`Bearer ${auth}`;const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:h},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r({})}})});req.on('error',()=>r({}));req.write(b);req.end()});}
+function post(url,body,auth){return new Promise(r=>{const u=new URL(url);const b=Buffer.from(JSON.stringify(body));const h={'Content-Type':'application/json','Content-Length':b.length};if(auth)h['Authorization']='Bearer '+auth;const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:h},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r({})}})});req.on('error',()=>r({}));req.write(b);req.end()});}
 
-async function send(to,msg){
-  return new Promise(r=>{
-    const u=new URL('https://api.ultramsg.com/'+UINSTANCE+'/messages/chat');
-    const b=Buffer.from('token='+UTOKEN+'&to='+encodeURIComponent(to)+'&body='+encodeURIComponent(msg)+'&priority=10');
-    const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Content-Length':b.length}},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{console.log('📤 '+d.substring(0,50));r(d)})});
-    req.on('error',e=>{console.error('❌ send:'+e.message);r(null)});
-    req.write(b);req.end();
-  });
-}
+async function send(to,msg){return new Promise(r=>{const u=new URL('https://api.ultramsg.com/'+UINSTANCE+'/messages/chat');const b=Buffer.from('token='+UTOKEN+'&to='+encodeURIComponent(to)+'&body='+encodeURIComponent(msg)+'&priority=10');const req=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Content-Length':b.length}},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{console.log('📤 '+d.substring(0,80));r(d)})});req.on('error',e=>{console.error('send err:'+e.message);r(null)});req.write(b);req.end()});}
 
-async function track(code){const d=await get('https://yanisdelivery.site/track1.php?code='+code);return d&&d[0]?d[0]:null;}
+async function track(code){console.log('🔍 '+code);const d=await get('https://yanisdelivery.site/track1.php?code='+code);console.log('📦 '+JSON.stringify(d));return d&&d[0]?d[0]:null;}
 
 function findCode(t){const m=t.match(/[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i);return m?m[0].toUpperCase():null;}
 
 const ST={'Livré':'✅ وصل','Annulé':'❌ ملغي','En cours':'🚚 في الطريق','Retour':'↩️ راجع'};
 
 async function ai(txt,info){
+  console.log('🤖 Groq...');
   const sys='بوت Yanis Delivery. رد بالدارجة أو الفرنسية. جملتين مع إيموجي.'+(info?' طرد: حالة='+(ST[info.Etat]||info.Etat)+' مدينة='+info.Ville+' موزع='+info.Livreur+' هاتف='+info.Telephone:'');
   const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama3-8b-8192',max_tokens:150,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
-  return r.choices?.[0]?.message?.content||null;
+  const reply=r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
+  console.log('💬 '+reply);
+  return reply;
 }
 
 http.createServer((req,res)=>{
@@ -45,13 +40,14 @@ http.createServer((req,res)=>{
         const isGroup=from.includes('@g.us')||data.isGroup===true;
         console.log('📨 from:'+from+' group:'+isGroup+' txt:'+txt);
         if(!txt||!isGroup)return;
+        console.log('✅ معالجة...');
         const kw=['مزروب','عاجل','مشكل','مفقود'];
         if(kw.some(k=>txt.includes(k)))await send(OWNER,'🚨 '+from+': '+txt);
         const code=findCode(txt);
         const info=code?await track(code):null;
         const r=await ai(txt,info);
-        if(r){console.log('🤖 رد:'+r.substring(0,50));await send(from,r);}
-      }catch(e){console.error('❌',e.message);}
+        if(r)await send(from,r);
+      }catch(e){console.error('❌ '+e.message);}
     });
   }else{
     res.writeHead(200);res.end('Yanis Bot OK');

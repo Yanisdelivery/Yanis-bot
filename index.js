@@ -12,7 +12,7 @@ const ST={'Livré':'✅ وصل','Annulé':'❌ ملغي','En cours':'🚚 في �
 async function ai(txt,info){
   console.log('🤖 Groq key:'+GROQ);
   const sys='بوت Yanis Delivery. رد بالدارجة أو الفرنسية. جملتين مع إيموجي.'+(info?' طرد: حالة='+(ST[info.Etat]||info.Etat)+' مدينة='+info.Ville+' موزع='+info.Livreur+' هاتف='+info.Telephone:'');
-  const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama3-70b-8192',max_tokens:150,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
+  const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:150,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
   console.log('📊 Groq response:'+JSON.stringify(r).substring(0,100));
   const reply=r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
   console.log('💬 '+reply);

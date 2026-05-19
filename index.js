@@ -10,7 +10,6 @@ const LIVREURS=[
   '212669995519','212664103198','212617380508','212693439316',
   '212659188309','212620815218','212613029454','212622335750','212659313678'
 ];
-
 const ETAT_LIVREURS=['212664103198','212613029454','212669995519'];
 
 const SCHEDULE={
@@ -40,9 +39,9 @@ const ST={
   'Reporte':'m2ajala 📅','Sorti':'khrajat 🚴'
 };
 
-const CONTACT_KW=['soni client','soni l client','صوني لكليان','سوني لكليان','تواصلو مع الكليان','twaslo m3a client','twasl m3a client','contactez le client','appel client','يعاود يصوني'];
+const CONTACT_KW=['soni client','soni l client','صوني لكليان','سوني لكليان','تواصلو مع الكليان','twaslo m3a client','twasl m3a client','appel client','يعاود يصوني'];
 const MANAGER_KW=['etat','screen appel','jawbona','جاوبونا'];
-const SCHEDULE_KW=['fo9ach twsal','فوقاش توصل','متى توصل','quand livraison','fo9ash twsal'];
+const SCHEDULE_KW=['fo9ach twsal','فوقاش توصل','متى توصل','fo9ash twsal'];
 const URGENT_KW=['مزروب','عاجل','urgent','مشكل','مفقود','ضايع'];
 
 function get(url){return new Promise(r=>{https.get(url,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{r(JSON.parse(d))}catch{r(null)}})}).on('error',()=>r(null))});}
@@ -77,26 +76,22 @@ function formatPhone(tel){return '212'+tel.replace(/^(\+212|0)/,'');}
 
 const pendingMedia={};
 
+async function aiReply(txt,context){
+  const sys=`أنت بوت Yanis Delivery المغربي. ${context||''} 
+جاوب بطبيعية بالدارجة المغربية مخلوطة مع شوية فرنسية بحال ما كيهضرو الناس. جملة أو جملتين فقط مع إيموجي. كن لطيف ومحترم.`;
+  const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:120,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
+  return r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
+}
+
 function scheduleDaily(hour,min,callback){
   function run(){
     const now=new Date();
     const target=new Date();
     target.setHours(hour,min,0,0);
     if(now>=target)target.setDate(target.getDate()+1);
-    const delay=target-now;
-    console.log('⏰ مجدول '+hour+'h'+min+' بعد '+(delay/1000/60).toFixed(0)+' دقيقة');
-    setTimeout(async()=>{await callback();run();},delay);
+    setTimeout(async()=>{await callback();run();},target-now);
   }
   run();
-}
-
-async function aiReply(txt,from){
-  const isSida=from.includes(SIDA);
-  const sys=isSida
-    ?'أنت مساعد Yanis Delivery. الشخص اللي كيكلمك هي المسؤولة عن إدخال البيانات. جاوبها بلطافة واحترام بالدارجة المغربية. جملتين فقط.'
-    :'أنت مساعد Yanis Delivery. جاوب الموزع بلطافة واحترام بالدارجة المغربية. جملتين فقط.';
-  const r=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:100,messages:[{role:'system',content:sys},{role:'user',content:txt}]},GROQ);
-  return r.choices&&r.choices[0]&&r.choices[0].message?r.choices[0].message.content:null;
 }
 
 http.createServer((req,res)=>{
@@ -116,18 +111,19 @@ http.createServer((req,res)=>{
         const sender=data.author||data.from||'';
         const msgId=data.id||Date.now().toString();
 
-        // رسائل خاصة من السيدة أو الموزعين
+        // رسائل خاصة
         if(!isGroup){
-          const senderNum=sender.replace('@c.us','');
-          const isKnown=senderNum===SIDA||senderNum===MANAGER||LIVREURS.includes(senderNum);
+          const senderNum=sender.replace('@c.us','').replace('+','');
+          const isKnown=[SIDA,MANAGER,...LIVREURS].includes(senderNum);
           if(isKnown&&txt){
-            const reply=await aiReply(txt,sender);
+            const isSida=senderNum===SIDA;
+            const context=isSida?'الشخص اللي كيكلمك هي المسؤولة عن إدخال البيانات، جاوبها بلطافة واحترام.':'الشخص اللي كيكلمك هو موزع، جاوبه بلطافة.';
+            const reply=await aiReply(txt,context);
             if(reply)await send(sender,reply);
           }
           return;
         }
 
-        if(!isGroup)return;
         console.log('📨 ['+msgType+'] '+txt.substring(0,60));
 
         // صورة أو صوت
@@ -136,7 +132,7 @@ http.createServer((req,res)=>{
           setTimeout(async()=>{
             if(pendingMedia[msgId]){
               delete pendingMedia[msgId];
-              await send(MANAGER,'⚠️ رسالة '+msgType+' من '+sender+' بدون جواب +10 دقائق!\nمجموعة: '+from);
+              await send(MANAGER,'⚠️ رسالة '+msgType+' من '+sender+' بدون جواب +10 دقائق!');
             }
           },10*60*1000);
           return;
@@ -149,10 +145,12 @@ http.createServer((req,res)=>{
         if(!txt)return;
         const lower=txt.toLowerCase();
 
+        // عاجل
         if(URGENT_KW.some(k=>lower.includes(k.toLowerCase()))){
           await send(MANAGER,'🚨 تنبيه عاجل!\nمن: '+sender+'\nرسالة: '+txt);
         }
 
+        // تنبيه المسؤولة
         if(MANAGER_KW.some(k=>lower.includes(k.toLowerCase()))){
           await send(MANAGER,'📢 تنبيه!\nمن: '+sender+'\nرسالة: '+txt);
         }
@@ -160,6 +158,7 @@ http.createServer((req,res)=>{
         const code=findCode(txt);
         const info=code?await track(code):null;
 
+        // تواصل مع العميل
         if(CONTACT_KW.some(k=>lower.includes(k.toLowerCase()))){
           if(info&&info.Telephone){
             const livreurPhone=formatPhone(info.Telephone);
@@ -171,6 +170,7 @@ http.createServer((req,res)=>{
           return;
         }
 
+        // جدول التوصيل
         if(SCHEDULE_KW.some(k=>lower.includes(k.toLowerCase()))){
           const city=findCity(txt)||info?.Ville;
           if(city){
@@ -185,10 +185,17 @@ http.createServer((req,res)=>{
           return;
         }
 
+        // رقم طرد
         if(info&&code){
           const etat=ST[info.Etat]||info.Etat;
           await send(from,'Colis dyalk '+code+' '+etat+'\n3and: '+info.Livreur+' f '+info.Ville+'\nTél: '+info.Telephone+' 📞');
+          return;
         }
+
+        // جواب عادي على أي رسالة
+        const context=info?'معلومات الطرد: حالة='+(ST[info.Etat]||info.Etat)+' مدينة='+info.Ville+' موزع='+info.Livreur+' هاتف='+info.Telephone:'';
+        const reply=await aiReply(txt,context);
+        if(reply)await send(from,reply);
 
       }catch(e){console.error('❌ '+e.message);}
     });
@@ -197,36 +204,13 @@ http.createServer((req,res)=>{
   }
 }).listen(process.env.PORT||3000,()=>{
   console.log('🚀 Yanis Bot OK');
-
-  // 12h — تنبيه السيدة bon excel + تنبيه الموزعين etat
   scheduleDaily(12,0,async()=>{
-    console.log('📢 12h تنبيهات');
-    await send(SIDA,'🌞 صباح الخير! وقت إدخال bon excel — Yanis Delivery 📊');
-    await new Promise(r=>setTimeout(r,2000));
-    for(const num of ETAT_LIVREURS){
-      await send(num,'🌞 صباح الخير! 3afak kamlo etat dyal les colis dyalkom 📦');
-      await new Promise(r=>setTimeout(r,1000));
-    }
+    await send(SIDA,'🌞 صباح الخير! وقت إدخال bon excel 📊');
+    for(const num of ETAT_LIVREURS){await send(num,'🌞 صباح الخير! 3afak kamlo etat 📦');await new Promise(r=>setTimeout(r,1000));}
   });
-
-  // 21h — تنبيه كل الموزعين etat
   scheduleDaily(21,0,async()=>{
-    console.log('📢 21h تنبيه الموزعين');
-    for(const num of LIVREURS){
-      await send(num,'🌙 3afak kamlo etat dyal les colis dyalkom — Barak Allahu fikum 📦');
-      await new Promise(r=>setTimeout(r,1000));
-    }
+    for(const num of LIVREURS){await send(num,'🌙 3afak kamlo etat dyal les colis — Barak Allahu fikum 📦');await new Promise(r=>setTimeout(r,1000));}
   });
-
-  // 22h — تنبيه السيدة etat
-  scheduleDaily(22,0,async()=>{
-    console.log('📢 22h تنبيه السيدة etat');
-    await send(SIDA,'🌙 وقت إدخال etat ديال الطرود — Yanis Delivery 📊');
-  });
-
-  // 23h30 — تنبيه السيدة bon excel الليلي
-  scheduleDaily(23,30,async()=>{
-    console.log('📢 23h30 تنبيه السيدة bon excel');
-    await send(SIDA,'🌙 وقت إدخال bon excel الليلي — Yanis Delivery 📊');
-  });
+  scheduleDaily(22,0,async()=>{await send(SIDA,'🌙 وقت إدخال etat ديال الطرود 📊');});
+  scheduleDaily(23,30,async()=>{await send(SIDA,'🌙 وقت إدخال bon excel الليلي 📊');});
 });

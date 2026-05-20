@@ -145,6 +145,21 @@ http.createServer((req,res)=>{
         if(!txt)return;
         const lower=txt.toLowerCase();
 
+        // تحيات
+        const hour=new Date().getHours();
+        const isMorning=hour>=5&&hour<12;
+        const isEvening=hour>=18;
+        if(lower==='salam'||lower==='السلام'||lower==='salam 3likom'||lower==='السلام عليكم'){
+          const greeting=isMorning?'وعليكم السلام! صباح النور 🌞':isEvening?'وعليكم السلام! مساء النور 🌙':'وعليكم السلام! 😊';
+          await send(from,greeting);return;
+        }
+        if(lower==='bonjour'||lower==='bonjour!'){
+          await send(from,'Bonjour merhba! 🌞');return;
+        }
+        if(lower==='bonsoir'||lower==='bonsoir!'){
+          await send(from,'Bonsoir merhba! 🌙');return;
+        }
+
         // عاجل
         if(URGENT_KW.some(k=>lower.includes(k.toLowerCase()))){
           await send(MANAGER,'🚨 تنبيه عاجل!\nمن: '+sender+'\nرسالة: '+txt);
@@ -192,10 +207,14 @@ http.createServer((req,res)=>{
           return;
         }
 
-        // جواب عادي على أي رسالة
-        const context=info?'معلومات الطرد: حالة='+(ST[info.Etat]||info.Etat)+' مدينة='+info.Ville+' موزع='+info.Livreur+' هاتف='+info.Telephone:'';
-        const reply=await aiReply(txt,context);
-        if(reply)await send(from,reply);
+        // إذا كاين معلومات طرد جاوب بيها
+        if(info&&code){
+          const etat=ST[info.Etat]||info.Etat;
+          await send(from,'Colis dyalk '+code+' '+etat+'\n3and: '+info.Livreur+' f '+info.Ville+'\nTél: '+info.Telephone+' 📞');
+          return;
+        }
+        // إذا ما فهمش — يطلب رقم الطرد
+        await send(from,'3tini code dyal colis bach nchoflk 📦');
 
       }catch(e){console.error('❌ '+e.message);}
     });

@@ -236,9 +236,10 @@ http.createServer((req,res)=>{
         if(lower==='bonjour'||lower==='bonjour!'){await send(from,'Bonjour merhba! 🌞');return;}
         if(lower==='bonsoir'||lower==='bonsoir!'){await send(from,'Bonsoir merhba! 🌙');return;}
 
-        // عاجل
-        if(URGENT_KW.some(k=>lower.includes(k.toLowerCase()))){
-          await send(MANAGER,'🚨 تنبيه عاجل!\nمن: '+sender+'\nرسالة: '+txt);
+        // كلمات تبعت لزينب
+        const ZINEB_KW=['مزروب','mazroba','عاجل','urgent','جاوبونا','jawbona','عافاكم','3afakom'];
+        if(ZINEB_KW.some(k=>lower.includes(k.toLowerCase()))){
+          await send(SIDA,'⚠️ تنبيه!\nمن: '+sender+'\nرسالة: '+txt);
         }
 
         const code=findCode(txt);
@@ -246,14 +247,19 @@ http.createServer((req,res)=>{
 
         // screen appel
         if(SCREEN_KW.some(k=>lower.includes(k.toLowerCase()))){
-          if(info&&info.Telephone){
-            const livreurPhone=formatPhone(info.Telephone);
-            const notifKey=livreurPhone+'-screen-'+Date.now();
-            await notifyLivreur(livreurPhone,'📸 3tina screen dyal appel colis '+code+' 3afak!',from,notifKey);
-            await send(from,'✅ Twaslna m3 '+info.Livreur+' bach y3tik screen 📲');
-          } else {
-            await send(from,'3tini code dyal colis bach nchoflk 📦');
-          }
+          // يقول للعميل يبعت السكرين لأنس
+          await send(from,'📸 Screen dyal appel wsifto m3ak l Zineb wala Anas — 0777990976 😊');
+          // في الخلفية يبعت لزينب تنبيه
+          const notifKey='screen-'+from+'-'+Date.now();
+          await send(SIDA,'📸 طلب screen'+(code?' — colis '+code:'')+' في المجموعة');
+          // إذا زينب ما جاوبتش 15 دقيقة → يبعت لأنس
+          pendingNotif[notifKey]={phone:SIDA,time:Date.now()};
+          setTimeout(async()=>{
+            if(pendingNotif[notifKey]){
+              delete pendingNotif[notifKey];
+              await send(OWNER,'⚠️ زينب ما جاوبتش على طلب screen'+(code?' — colis '+code:''));
+            }
+          },15*60*1000);
           return;
         }
 
@@ -310,7 +316,7 @@ http.createServer((req,res)=>{
         }
 
         // ما فهمش
-        await send(from,'سلام عليكم مرحبا! فاش يمكن نساعدك؟ 3tini code dyal colis bach nchoflk 📦 😊');
+        await send(from,'Ana nchof m3a Zineb dkhol tjawb 😊');
 
       }catch(e){console.error('❌ '+e.message);}
     });

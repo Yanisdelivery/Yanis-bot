@@ -77,7 +77,13 @@ async function track(code){
 }
 
 function findCode(t){
-  const patterns=[/[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,/[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i,/[A-Z]{2,5}-\d{8,}-\d+/i,/\b\d{4,10}\b/];
+  const patterns=[
+    /[A-Z]{2,6}\d{2,6}[A-Z]{1,4}\d{2,8}/i,
+    /[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,
+    /[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i,
+    /[A-Z]{2,5}-\d{8,}-\d+/i,
+    /\b\d{4,10}\b/
+  ];
   for(const p of patterns){const m=t.match(p);if(m)return m[0].toUpperCase();}
   return null;
 }

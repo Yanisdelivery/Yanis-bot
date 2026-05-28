@@ -78,11 +78,12 @@ async function track(code){
 
 function findCode(t){
   const patterns=[
-    /[A-Z]{2,6}\d{2,6}[A-Z]{1,4}\d{2,8}/i,
-    /[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,
-    /[A-Z]{2,5}-\d{2}-\d{2}-\d{4}-\d+/i,
-    /[A-Z]{2,5}-\d{8,}-\d+/i,
-    /\b\d{4,10}\b/
+    /[A-Z]{2,6}-\d{2}-\d{2}-\d{4}-\d+/i,          // NEX-22-05-2026-05967512
+    /[A-Z]{2,6}-\d{8,14}-\d+/i,                     // BDR-20052026-4919396, SKY-23052026050648-112790, YNS-23052026-67397, Ema-18052026-04586
+    /[A-Z]{2,6}-\d{3,6}/i,                           // Led-577
+    /[A-Z]{2,6}\d{2,6}[A-Z]{1,4}\d{2,8}/i,          // COD1049MA8307, HJB052687249HT
+    /[A-Z]{2,6}\d{6,12}[A-Z]{0,4}/i,                // MKNS0526922497DB
+    /\b\d{4,10}\b/                                    // 99035
   ];
   for(const p of patterns){const m=t.match(p);if(m)return m[0].toUpperCase();}
   return null;
@@ -336,3 +337,4 @@ http.createServer((req,res)=>{
   // 23h30 — بدون الأحد
   scheduleDaily(23,30,async()=>{await send(SIDA,'🌙 وقت إدخال bon excel الليلي 📊');});
 });
+ 

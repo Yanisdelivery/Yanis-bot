@@ -315,8 +315,11 @@ http.createServer((req,res)=>{
           return;
         }
 
-        // ما فهمش
-        await send(from,'Ana nchof m3a Zineb dkhol tjawb 😊');
+        // ما فهمش — يجاوب بـ AI بشكل طبيعي
+        const aiSys='أنت بوت ذكي لشركة Yanis Delivery للتوصيل في المغرب. اسمك Souifi Bot. إذا ما عرفتش تجاوب على السؤال قل بلطافة أن المسؤولة زينب غتجاوب. جاوب بالدارجة المغربية مخلوطة مع شوية فرنسية بشكل طبيعي. جملة أو جملتين فقط. لا تكرر نفس الجواب في كل مرة.';
+        const aiR=await post('https://api.groq.com/openai/v1/chat/completions',{model:'llama-3.3-70b-versatile',max_tokens:100,messages:[{role:'system',content:aiSys},{role:'user',content:txt}]},GROQ);
+        const aiReply=aiR.choices&&aiR.choices[0]&&aiR.choices[0].message?aiR.choices[0].message.content:null;
+        if(aiReply)await send(from,aiReply);
 
       }catch(e){console.error('❌ '+e.message);}
     });
@@ -343,4 +346,3 @@ http.createServer((req,res)=>{
   // 23h30 — بدون الأحد
   scheduleDaily(23,30,async()=>{await send(SIDA,'🌙 وقت إدخال bon excel الليلي 📊');});
 });
- 

@@ -6,8 +6,8 @@ const OWNER='212716508833';
 const ZINEB='212709009564';   // زينب
 const SIDA='212780556236';    // إيمان/السيدة
 
-const LIVREURS=['212669995519','212664103198','212617380508','212693439316','212659188309','212620815218','212613029454','212622335750','212659313678'];
-const ETAT_LIVREURS=['212664103198','212613029454','212669995519'];
+const LIVREURS=['212669995519','212664103198','212617380508','212620815218','212613029454','212622335750','212659313678','212615884130','212694283619'];
+const ETAT_LIVREURS=['212664103198','212613029454','212669995519','212615884130','212694283619'];
 const SCREEN_LIVREURS=['212613029454','212664103198','212669995519'];
 
 const SCHEDULE={
@@ -241,7 +241,7 @@ http.createServer((req,res)=>{
   console.log('🚀 Yanis Bot OK');
   scheduleDaily(12,0,async()=>{
     await send(SIDA,'🌞 صباح الخير! وقت إدخال bon excel 📊');
-    for(const num of ETAT_LIVREURS){await send(num,'🌞 صباح الخير! 3afak kamlo etat 📦');await new Promise(r=>setTimeout(r,1000));}
+    for(const num of ETAT_LIVREURS){await send(num,'🌞 صباح الخير! 3afak aji t3ti lhsab l Zineb 😊');await new Promise(r=>setTimeout(r,1000));}
   });
   scheduleDaily(21,0,async()=>{
     for(const num of LIVREURS){await send(num,'🌙 3afak kamlo etat dyal les colis — Barak Allahu fikum 📦');await new Promise(r=>setTimeout(r,1000));}
